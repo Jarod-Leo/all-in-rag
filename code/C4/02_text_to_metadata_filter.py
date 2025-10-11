@@ -1,3 +1,6 @@
+# 这是一个使用LangChain和DeepSeek对BiliBili视频进行元数据过滤查询的示例
+# 该示例展示了如何加载视频数据，创建向量存储，并使用SelfQueryRetriever根据元数据字段进行查询
+
 import os
 from langchain_deepseek import ChatDeepSeek 
 from langchain_community.document_loaders import BiliBiliLoader
@@ -7,7 +10,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 import logging
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO) # 设置日志级别为INFO
 
 # 1. 初始化视频数据
 video_urls = [
@@ -18,7 +21,7 @@ video_urls = [
 
 bili = []
 try:
-    loader = BiliBiliLoader(video_urls=video_urls)
+    loader = BiliBiliLoader(video_urls=video_urls) # 创建BiliBili视频加载器，返回了原始元数据
     docs = loader.load()
     
     for doc in docs:
@@ -33,7 +36,7 @@ try:
             'length': original.get('duration', 0),
         }
         
-        doc.metadata = metadata
+        doc.metadata = metadata # 更新文档的元数据为简化后的版本，将复杂的嵌套结构扁平化
         bili.append(doc)
         
 except Exception as e:
@@ -81,10 +84,10 @@ llm = ChatDeepSeek(
 retriever = SelfQueryRetriever.from_llm(
     llm=llm,
     vectorstore=vectorstore,
-    document_contents="记录视频标题、作者、观看次数等信息的视频元数据",
+    document_contents="记录视频标题、作者、观看次数等信息的视频元数据", # 描述文档内容
     metadata_field_info=metadata_field_info,
-    enable_limit=True,
-    verbose=True
+    enable_limit=True, # 启用结果数量限制
+    verbose=True # 显示详细日志
 )
 
 # 5. 执行查询示例
@@ -95,7 +98,7 @@ queries = [
 
 for query in queries:
     print(f"\n--- 查询: '{query}' ---")
-    results = retriever.invoke(query)
+    results = retriever.invoke(query) # 使用invoke方法执行查询
     if results:
         for doc in results:
             title = doc.metadata.get('title', '未知标题')
