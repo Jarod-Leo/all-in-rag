@@ -1,3 +1,6 @@
+# 这是一个使用递归检索器从多个Excel工作表中查询数据的示例。
+# 每个工作表都包含不同年份的电影数据，递归检索器首先在摘要节点中找到相关的工作表，然后使用该工作表的查询引擎来
+
 import os
 import pandas as pd
 from dotenv import load_dotenv
@@ -31,9 +34,9 @@ for sheet_name in xls.sheet_names:
     
     # 为当前工作表创建一个摘要节点（IndexNode）
     year = sheet_name.replace('年份_', '')
-    summary = f"这个表格包含了年份为 {year} 的电影信息，可以用来回答关于这一年电影的具体问题。"
-    node = IndexNode(text=summary, index_id=sheet_name)
-    all_nodes.append(node)
+    summary = f"这个表格包含了年份为 {year} 的电影信息，可以用来回答关于这一年电影的具体问题。" # 摘要内容自定义
+    node = IndexNode(text=summary, index_id=sheet_name) # 使用工作表名称作为索引ID
+    all_nodes.append(node) # 收集所有摘要节点
     
     # 存储工作表名称到其查询引擎的映射
     df_query_engines[sheet_name] = query_engine
