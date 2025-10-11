@@ -1,3 +1,5 @@
+# 这是一个使用LangChain和DeepSeek对BiliBili视频进行元数据排序查询的示例
+
 import os
 from langchain_deepseek import ChatDeepSeek 
 from langchain_community.document_loaders import BiliBiliLoader
@@ -105,27 +107,28 @@ for query in queries:
 
 JSON指令:"""
     
-    response = client.chat.completions.create(
+    response = client.chat.completions.create( # 调用DeepSeek的chat接口
         model="deepseek-chat",
         messages=[
             {"role": "user", "content": prompt}
         ],
         temperature=0,
-        response_format={"type": "json_object"}
+        response_format={"type": "json_object"} # 指定返回JSON对象
     )
     
     try:
         import json
-        instruction_str = response.choices[0].message.content
-        instruction = json.loads(instruction_str)
-        print(f"--- 生成的排序指令: {instruction} ---")
+        instruction_str = response.choices[0].message.content # 获取返回内容
+        instruction = json.loads(instruction_str) # 解析为字典
+        print(f"--- 生成的排序指令: {instruction} ---") 
 
-        sort_by = instruction.get('sort_by')
-        order = instruction.get('order')
+        sort_by = instruction.get('sort_by') # 排序字段
+        order = instruction.get('order') # 排序方向
 
         if sort_by in ['length', 'view_count'] and order in ['asc', 'desc']:
             # 在代码中执行排序
-            reverse_order = (order == 'desc')
+            reverse_order = (order == 'desc') # 是否降序
+            # 根据排序字段对文档进行排序
             sorted_docs = sorted(all_documents, key=lambda doc: doc.metadata.get(sort_by, 0), reverse=reverse_order)
             
             # 获取排序后的第一个结果
