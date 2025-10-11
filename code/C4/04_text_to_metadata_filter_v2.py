@@ -118,7 +118,7 @@ JSON指令:"""
     
     try:
         import json
-        instruction_str = response.choices[0].message.content # 获取返回内容
+        instruction_str = response.choices[0].message.content # 获取返回内容，choices是个列表，取第一个，message是个字典，content是字符串
         instruction = json.loads(instruction_str) # 解析为字典
         print(f"--- 生成的排序指令: {instruction} ---") 
 
@@ -129,7 +129,7 @@ JSON指令:"""
             # 在代码中执行排序
             reverse_order = (order == 'desc') # 是否降序
             # 根据排序字段对文档进行排序
-            sorted_docs = sorted(all_documents, key=lambda doc: doc.metadata.get(sort_by, 0), reverse=reverse_order)
+            sorted_docs = sorted(all_documents, key=lambda doc: doc.metadata.get(sort_by, 0), reverse=reverse_order) # 根据排序字段对文档的元数据进行排序
             
             # 获取排序后的第一个结果
             if sorted_docs:
