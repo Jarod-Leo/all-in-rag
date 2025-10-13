@@ -1,3 +1,8 @@
+# 查询路由构建示例一：基于LLM的意图识别
+# 定义清晰的路由选项（例如，数据源名称、功能分类）。
+# LLM 分析查询并输出决策标签。
+# 代码根据标签调用相应的检索器或工具。
+
 import os
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -13,19 +18,20 @@ llm = ChatDeepSeek(
 # 1. 设置不同菜系的处理链
 sichuan_prompt = ChatPromptTemplate.from_template(
     "你是一位川菜大厨。请用正宗的川菜做法，回答关于「{question}」的问题。"
-)
-sichuan_chain = sichuan_prompt | llm | StrOutputParser()
+) # 川菜prompt模板
+sichuan_chain = sichuan_prompt | llm | StrOutputParser() # 川菜链
 
 cantonese_prompt = ChatPromptTemplate.from_template(
     "你是一位粤菜大厨。请用经典的粤菜做法，回答关于「{question}」的问题。"
-)
-cantonese_chain = cantonese_prompt | llm | StrOutputParser()
+) # 粤菜prompt模板
+cantonese_chain = cantonese_prompt | llm | StrOutputParser() # 粤菜链
 
 # 定义备用通用链
 general_prompt = ChatPromptTemplate.from_template(
     "你是一个美食助手。请回答关于「{question}」的问题。"
-)
-general_chain = general_prompt | llm | StrOutputParser()
+) # 通用prompt模板
+general_chain = general_prompt | llm | StrOutputParser() # 通用链
+print("各个菜系的处理链创建成功。\n")
 
 
 # 2. 创建路由链
@@ -34,12 +40,12 @@ classifier_prompt = ChatPromptTemplate.from_template(
     不要解释你的理由，只返回一个单词的分类结果。
     问题: {question}"""
 )
-classifier_chain = classifier_prompt | llm | StrOutputParser()
+classifier_chain = classifier_prompt | llm | StrOutputParser() # 分类链
 
 # 定义路由分支
 router_branch = RunnableBranch(
-    (lambda x: "川菜" in x["topic"], sichuan_chain),
-    (lambda x: "粤菜" in x["topic"], cantonese_chain),
+    (lambda x: "川菜" in x["topic"], sichuan_chain), # 川菜分支，x是输入字典，sichuan_chain是处理链
+    (lambda x: "粤菜" in x["topic"], cantonese_chain), # 粤菜分支
     general_chain  # 默认选项
 )
 
@@ -56,16 +62,16 @@ demo_questions = [
 ]
 
 for i, item in enumerate(demo_questions, 1):
-    question = item["question"]
+    question = item["question"] # 提取问题文本
     print(f"\n--- 问题 {i}: {question} ---")
     
     try:
         # 获取路由决策
-        topic = classifier_chain.invoke({"question": question})
+        topic = classifier_chain.invoke({"question": question}) # 运行分类链，得到分类结果
         print(f"路由决策: {topic}")
 
         # 执行完整链
-        result = full_router_chain.invoke(item)
+        result = full_router_chain.invoke(item) # 运行完整路由链
         print(f"回答: {result}")
     except Exception as e:
         print(f"执行错误: {e}")
