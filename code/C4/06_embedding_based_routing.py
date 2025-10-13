@@ -1,3 +1,6 @@
+# 查询路由构建实例二：嵌入相似性路由
+# 这种方法不依赖 LLM 进行分类，延迟更低。它通过计算用户查询与预设的“路由示例语句”之间的向量嵌入相似度来做出决策
+
 import os
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -38,31 +41,32 @@ cantonese_chain = (
     | StrOutputParser()
 )
 
-route_map = { "川菜": sichuan_chain, "粤菜": cantonese_chain }
+route_map = { "川菜": sichuan_chain, "粤菜": cantonese_chain } # 路由名称到处理链的映射
 print("川菜和粤菜的处理链创建成功。\n")
 
 # 3. 创建路由函数
 def route(info):
     # 对用户查询进行嵌入
-    query_embedding = embeddings.embed_query(info["query"])
+    query_embedding = embeddings.embed_query(info["query"]) # 对用户查询进行嵌入
     
     # 计算与各路由提示的余弦相似度
-    similarity_scores = cosine_similarity([query_embedding], route_prompt_embeddings)[0]
+    similarity_scores = cosine_similarity([query_embedding], route_prompt_embeddings)[0] # 计算余弦相似度，[query_embedding]变成二维数组，返回二维数组取第一行,[0]取第一行,因为只有一个查询
+    print(f"相似度分数: {similarity_scores}")
     
     # 找到最相似的路由
-    chosen_route_index = np.argmax(similarity_scores)
-    chosen_route_name = route_names[chosen_route_index]
+    chosen_route_index = np.argmax(similarity_scores) # 找到相似度最高的索引
+    chosen_route_name = route_names[chosen_route_index] # 获取对应的路由名称
     
     print(f"路由决策: 检测到问题与“{chosen_route_name}”最相似。")
     
     # 获取对应的处理链
-    chosen_chain = route_map[chosen_route_name]
+    chosen_chain = route_map[chosen_route_name] # 获取对应的处理链
     
     # 直接调用选中的链并返回结果
-    return chosen_chain.invoke(info)
+    return chosen_chain.invoke(info) # 直接调用选中的链并返回结果
 
 # 创建完整的路由链
-full_chain = RunnableLambda(route)
+full_chain = RunnableLambda(route) 
 
 
 # 4. 运行演示查询
@@ -72,7 +76,7 @@ demo_queries = [
     "麻婆豆腐的核心调料是什么？",  # 应该路由到川菜
 ]
 
-for i, query in enumerate(demo_queries, 1):
+for i, query in enumerate(demo_queries, 1): # (demo_queries, 1)表示从1开始计数
     print(f"\n--- 问题 {i}: {query} ---")
     try:
         # 传入字典，full_chain 会直接返回最终答案
