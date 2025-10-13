@@ -1,5 +1,6 @@
 # 这是一个使用LangChain和DeepSeek对BiliBili视频进行元数据排序查询的示例
-
+# 查询翻译：让 LLM 直接构建出查询指令，思路是，要求 LLM 直接分析用户的意图，并生成一个结构化（例如 JSON 格式）的指令，告诉我们的代码应该如何操作。对于“时间最短的视频”这个问题，
+# 我们期望 LLM 能直接告诉我们：“请按‘时长’字段进行升序排序，并返回第一条结果”。
 import os
 from langchain_deepseek import ChatDeepSeek 
 from langchain_community.document_loaders import BiliBiliLoader
