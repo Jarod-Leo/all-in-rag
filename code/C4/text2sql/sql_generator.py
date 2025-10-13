@@ -1,3 +1,5 @@
+# 这是一个简化的SQL生成器，使用DeepSeek模型将自然语言问题转换为SQL查询语句
+
 import os
 from typing import List, Dict, Any
 from langchain_deepseek import ChatDeepSeek
@@ -8,7 +10,7 @@ class SimpleSQLGenerator:
     """简化的SQL生成器"""
     
     def __init__(self, api_key: str = None):
-        self.llm = ChatDeepSeek(
+        self.llm = ChatDeepSeek( # 初始化DeepSeek模型
             model="deepseek-chat",
             temperature=0,
             api_key=api_key or os.getenv("DEEPSEEK_API_KEY")
@@ -17,7 +19,7 @@ class SimpleSQLGenerator:
     def generate_sql(self, user_query: str, knowledge_results: List[Dict[str, Any]]) -> str:
         """生成SQL语句"""
         # 构建上下文
-        context = self._build_context(knowledge_results)
+        context = self._build_context(knowledge_results) 
         
         # 构建提示
         prompt = f"""你是一个SQL专家。请根据以下信息将用户问题转换为SQL查询语句。
@@ -35,23 +37,23 @@ class SimpleSQLGenerator:
 
 SQL语句："""
 
-        messages = [HumanMessage(content=prompt)]
-        response = self.llm.invoke(messages)
+        messages = [HumanMessage(content=prompt)] # 构建消息列表，HumanMessage(content=prompt)返回一个消息对象
+        response = self.llm.invoke(messages) # 调用模型生成响应
         
         # 清理SQL语句
-        sql = response.content.strip()
-        if sql.startswith("```sql"):
+        sql = response.content.strip() # 去除首尾空白
+        if sql.startswith("```sql"): # 如果以```sql开头，去掉前6个字符
             sql = sql[6:]
-        if sql.startswith("```"):
+        if sql.startswith("```"): # 如果以```开头，去掉前3个字符
             sql = sql[3:]
-        if sql.endswith("```"):
+        if sql.endswith("```"): # 如果以```结尾，去掉后3个字符
             sql = sql[:-3]
         
-        return sql.strip()
+        return sql.strip() # 返回清理后的SQL语句
     
     def fix_sql(self, original_sql: str, error_message: str, knowledge_results: List[Dict[str, Any]]) -> str:
         """修复SQL语句"""
-        context = self._build_context(knowledge_results)
+        context = self._build_context(knowledge_results) # 构建上下文
         
         prompt = f"""请修复以下SQL语句的错误。
 
@@ -98,9 +100,9 @@ SQL语句："""
                 descriptions.append(result["content"])
         
         # 构建上下文
-        if ddl_info:
-            context += "=== 表结构信息 ===\n"
-            context += "\n".join(ddl_info) + "\n\n"
+        if ddl_info: # 如果有DDL信息
+            context += "=== 表结构信息 ===\n" # 添加表结构标题
+            context += "\n".join(ddl_info) + "\n\n" # 添加表结构内容
         
         if descriptions:
             context += "=== 表和字段描述 ===\n"
