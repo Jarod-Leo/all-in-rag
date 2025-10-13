@@ -75,13 +75,13 @@ class SimpleKnowledgeBase:
             self.milvus_client.drop_collection(self.collection_name)
         
         fields = [
-            FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=True, max_length=100),
-            FieldSchema(name="content_type", dtype=DataType.VARCHAR, max_length=50),
-            FieldSchema(name="question", dtype=DataType.VARCHAR, max_length=1000),
-            FieldSchema(name="sql", dtype=DataType.VARCHAR, max_length=2000),
-            FieldSchema(name="description", dtype=DataType.VARCHAR, max_length=1000),
-            FieldSchema(name="table_name", dtype=DataType.VARCHAR, max_length=100),
-            FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=self.embedding_function.dim)
+            FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=True, max_length=100), # 主键字段
+            FieldSchema(name="content_type", dtype=DataType.VARCHAR, max_length=50), # 内容类型字段
+            FieldSchema(name="question", dtype=DataType.VARCHAR, max_length=1000), # 问题字段
+            FieldSchema(name="sql", dtype=DataType.VARCHAR, max_length=2000), # SQL字段
+            FieldSchema(name="description", dtype=DataType.VARCHAR, max_length=1000), # 描述字段
+            FieldSchema(name="table_name", dtype=DataType.VARCHAR, max_length=100), # 表名字段
+            FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=self.embedding_function.dim) # 嵌入字段
         ] # 定义集合字段
         
         schema = CollectionSchema(fields, description="Text2SQL知识库") # 定义集合模式
