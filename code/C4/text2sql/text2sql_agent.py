@@ -1,3 +1,5 @@
+# 这是一个简化的Text2SQL Agent，结合了知识库检索和SQL生成
+
 import sqlite3
 import os
 from typing import Dict, Any, List, Tuple
@@ -10,16 +12,16 @@ class SimpleText2SQLAgent:
     
     def __init__(self, milvus_uri: str = "http://localhost:19530", api_key: str = None):
         """初始化代理"""
-        self.knowledge_base = SimpleKnowledgeBase(milvus_uri)
-        self.sql_generator = SimpleSQLGenerator(api_key)
-        self.db_path = None
-        self.connection = None
-        
+        self.knowledge_base = SimpleKnowledgeBase(milvus_uri) # 初始化知识库
+        self.sql_generator = SimpleSQLGenerator(api_key) # 初始化SQL生成器
+        self.db_path = None # 数据库路径
+        self.connection = None # 数据库连接
+
         # 配置参数
-        self.max_retry_count = 3
-        self.top_k_retrieval = 5
-        self.max_result_rows = 100
-    
+        self.max_retry_count = 3 # 最大重试次数
+        self.top_k_retrieval = 5 # 知识库检索的前K个结果
+        self.max_result_rows = 100 # 查询结果的最大行数
+
     def connect_database(self, db_path: str) -> bool:
         """连接SQLite数据库"""
         try:
@@ -54,7 +56,7 @@ class SimpleText2SQLAgent:
         
         # 2. 生成SQL
         print("生成SQL...")
-        sql = self.sql_generator.generate_sql(user_question, knowledge_results)
+        sql = self.sql_generator.generate_sql(user_question, knowledge_results) # 生成SQL
         print(f"生成的SQL: {sql}")
         
         # 3. 执行SQL（带重试）
@@ -62,7 +64,7 @@ class SimpleText2SQLAgent:
         while retry_count < self.max_retry_count:
             print(f"执行SQL (尝试 {retry_count + 1}/{self.max_retry_count})...")
             
-            success, result = self._execute_sql(sql)
+            success, result = self._execute_sql(sql) # 执行SQL，返回成功标志和结果
             
             if success:
                 print("SQL执行成功!")
@@ -76,9 +78,9 @@ class SimpleText2SQLAgent:
             else:
                 print(f"SQL执行失败: {result}")
                 
-                if retry_count < self.max_retry_count - 1:
+                if retry_count < self.max_retry_count - 1: # 如果还可以重试，max_retry_count - 1表示最后一次不再重试
                     print("尝试修复SQL...")
-                    sql = self.sql_generator.fix_sql(sql, result, knowledge_results)
+                    sql = self.sql_generator.fix_sql(sql, result, knowledge_results) # 修复SQL
                     print(f"修复后的SQL: {sql}")
                 
                 retry_count += 1
@@ -94,27 +96,27 @@ class SimpleText2SQLAgent:
     def _execute_sql(self, sql: str) -> Tuple[bool, Any]:
         """执行SQL语句"""
         try:
-            cursor = self.connection.cursor()
+            cursor = self.connection.cursor() # 创建游标，用来执行SQL语句
             
             # 添加LIMIT限制
-            if sql.strip().upper().startswith('SELECT') and 'LIMIT' not in sql.upper():
-                sql = f"{sql.rstrip(';')} LIMIT {self.max_result_rows}"
+            if sql.strip().upper().startswith('SELECT') and 'LIMIT' not in sql.upper(): # 如果是查询语句且没有LIMIT限制
+                sql = f"{sql.rstrip(';')} LIMIT {self.max_result_rows}" # 添加LIMIT限制，rstrip(';')去掉末尾的分号
             
-            cursor.execute(sql)
-            
-            if sql.strip().upper().startswith('SELECT'):
+            cursor.execute(sql) # 执行SQL语句
+
+            if sql.strip().upper().startswith('SELECT'): # 如果是查询语句
                 # 查询语句
-                columns = [desc[0] for desc in cursor.description]
-                rows = cursor.fetchall()
+                columns = [desc[0] for desc in cursor.description] # 获取列名，cursor.description是列的描述信息，desc[0]是列名
+                rows = cursor.fetchall() # 获取所有行
                 
                 results = []
                 for row in rows:
-                    result_row = {}
+                    result_row = {} # 记录一行结果
                     for i, value in enumerate(row):
-                        result_row[columns[i]] = value
-                    results.append(result_row)
+                        result_row[columns[i]] = value # 将列名和值对应起来
+                    results.append(result_row) # 添加结果行
                 
-                cursor.close()
+                cursor.close() # 关闭游标
                 return True, {
                     "columns": columns,
                     "rows": results,
@@ -122,7 +124,7 @@ class SimpleText2SQLAgent:
                 }
             else:
                 # 非查询语句
-                self.connection.commit()
+                self.connection.commit() # 提交事务
                 cursor.close()
                 return True, "SQL执行成功"
         
@@ -150,7 +152,7 @@ class SimpleText2SQLAgent:
                 "question": question,
                 "sql": sql,
                 "database": "sqlite"
-            })
+            }) # 添加新示例
             
             # 保存
             with open(qsql_path, 'w', encoding='utf-8') as f:
@@ -170,16 +172,16 @@ class SimpleText2SQLAgent:
             cursor = self.connection.cursor()
             
             # 获取所有表名
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            tables = cursor.fetchall()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'") # 查询所有表名
+            tables = cursor.fetchall() # 获取所有表名
             
             table_info = []
             for table in tables:
-                table_name = table[0]
+                table_name = table[0] # 表名
                 
                 # 获取表结构
-                cursor.execute(f"PRAGMA table_info({table_name})")
-                columns = cursor.fetchall()
+                cursor.execute(f"PRAGMA table_info({table_name})") # 获取表结构信息
+                columns = cursor.fetchall() # 获取所有列信息
                 
                 table_info.append({
                     "table_name": table_name,
