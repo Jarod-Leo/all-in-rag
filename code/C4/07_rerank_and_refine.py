@@ -1,3 +1,6 @@
+# 这是一个检索进阶技术的实例，用到了ColBERT重排序器和LLM压缩器的组合
+# 该示例展示了如何在检索管道中集成复杂的文档重排序和压缩步骤，以提升检索结果的相关性和精炼度
+
 import os
 from langchain_community.vectorstores import FAISS
 from langchain.retrievers import ContextualCompressionRetriever
@@ -16,6 +19,7 @@ import torch
 from transformers import AutoTokenizer, AutoModel
 import torch.nn.functional as F
 
+# 继承langchain的BaseDocumentCompressor，定义ColBERT重排器
 class ColBERTReranker(BaseDocumentCompressor):
     """ColBERT重排器"""
 
@@ -25,26 +29,26 @@ class ColBERTReranker(BaseDocumentCompressor):
         model_name = "bert-base-uncased"
 
         # 加载模型和分词器
-        object.__setattr__(self, 'tokenizer', AutoTokenizer.from_pretrained(model_name))
-        object.__setattr__(self, 'model', AutoModel.from_pretrained(model_name))
+        object.__setattr__(self, 'tokenizer', AutoTokenizer.from_pretrained(model_name)) # 使用object.__setattr__绕过BaseDocumentCompressor的__setattr__限制
+        object.__setattr__(self, 'model', AutoModel.from_pretrained(model_name)) # 使用object.__setattr__绕过BaseDocumentCompressor的__setattr__限制
         self.model.eval()
         print(f"ColBERT模型加载完成")
 
     def encode_text(self, texts):
         """ColBERT文本编码"""
         inputs = self.tokenizer(
-            texts,
-            return_tensors="pt",
+            texts, # 输入文本
+            return_tensors="pt", # 返回PyTorch张量
             padding=True,
-            truncation=True,
+            truncation=True, # 截断超过最大长度的文本
             max_length=128
         )
 
         with torch.no_grad():
-            outputs = self.model(**inputs)
+            outputs = self.model(**inputs) # 前向传播，得到模型输出，**inputs表示将inputs字典解包成关键字参数
 
-        embeddings = outputs.last_hidden_state
-        embeddings = F.normalize(embeddings, p=2, dim=-1)
+        embeddings = outputs.last_hidden_state # 获取最后一层隐藏状态作为嵌入
+        embeddings = F.normalize(embeddings, p=2, dim=-1) # L2归一化
 
         return embeddings
 
@@ -53,24 +57,24 @@ class ColBERTReranker(BaseDocumentCompressor):
         scores = []
 
         for i, doc_emb in enumerate(doc_embs):
-            doc_mask = doc_masks[i:i+1]
+            doc_mask = doc_masks[i:i+1] # 取出当前文档的mask，保持维度一致，shape[1, seq_len]
 
             # 计算相似度矩阵
-            similarity_matrix = torch.matmul(query_emb, doc_emb.unsqueeze(0).transpose(-2, -1))
+            similarity_matrix = torch.matmul(query_emb, doc_emb.unsqueeze(0).transpose(-2, -1)) # query_emb shape [1, q_len, dim], doc_emb shape [d_len, dim] -> [1, d_len, dim] -> [1, dim, d_len] -> similarity_matrix shape [1, q_len, d_len]
 
             # 应用文档mask
             doc_mask_expanded = doc_mask.unsqueeze(1)
             similarity_matrix = similarity_matrix.masked_fill(~doc_mask_expanded.bool(), -1e9)
 
             # MaxSim操作
-            max_sim_per_query_token = similarity_matrix.max(dim=-1)[0]
+            max_sim_per_query_token = similarity_matrix.max(dim=-1)[0] # 对每个查询词，取与文档中最相似的词的相似度，similarity_matrix shape [1, q_len, d_len] -> max_sim_per_query_token shape [1, q_len]，[0]取最大值，[1]取索引
 
             # 应用查询mask
-            query_mask_expanded = query_mask.unsqueeze(0)
+            query_mask_expanded = query_mask.unsqueeze(0) # shape [1, q_len]
             max_sim_per_query_token = max_sim_per_query_token.masked_fill(~query_mask_expanded.bool(), 0)
 
             # 求和得到最终分数
-            colbert_score = max_sim_per_query_token.sum(dim=-1).item()
+            colbert_score = max_sim_per_query_token.sum(dim=-1).item() # shape [1], .item()取出数值
             scores.append(colbert_score)
 
         return scores
@@ -121,9 +125,9 @@ class ColBERTReranker(BaseDocumentCompressor):
         )
 
         # 排序并返回前5个
-        scored_docs = list(zip(documents, scores))
-        scored_docs.sort(key=lambda x: x[1], reverse=True)
-        reranked_docs = [doc for doc, _ in scored_docs[:5]]
+        scored_docs = list(zip(documents, scores)) # 将文档和分数打包成元组列表
+        scored_docs.sort(key=lambda x: x[1], reverse=True) # 按分数降序排序
+        reranked_docs = [doc for doc, _ in scored_docs[:5]] # 取前5个文档
 
         return reranked_docs
 
@@ -136,15 +140,15 @@ hf_bge_embeddings = HuggingFaceBgeEmbeddings(
 
 llm = ChatDeepSeek(
     model="deepseek-chat", 
-    temperature=0.1, 
+    temperature=0.1,  # 低温度以获得更确定的回答
     api_key=os.getenv("DEEPSEEK_API_KEY")
 )
 
 # 1. 加载和处理文档
 loader = TextLoader("../../data/C4/txt/ai.txt", encoding="utf-8")
 documents = loader.load()
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
-docs = text_splitter.split_documents(documents)
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100) # 优化分块策略：减少重叠，使用中文友好的分隔符
+docs = text_splitter.split_documents(documents) # 分块文档
 
 # 2. 创建向量存储和基础检索器
 vectorstore = FAISS.from_documents(docs, hf_bge_embeddings)
@@ -164,8 +168,8 @@ pipeline_compressor = DocumentCompressorPipeline(
 
 # 6. 创建最终的压缩检索器
 final_retriever = ContextualCompressionRetriever(
-    base_compressor=pipeline_compressor,
-    base_retriever=base_retriever
+    base_compressor=pipeline_compressor, # 使用管道压缩器
+    base_retriever=base_retriever # 基础检索器，包含基本的向量检索和排序模块
 )
 
 # 7. 执行查询并展示结果
