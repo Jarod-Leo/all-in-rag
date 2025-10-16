@@ -229,3 +229,105 @@ def _execute_sql(self, sql: str) -> Tuple[bool, Any]:
         # 返回执行成功标志和结构化结果
         return True, {"columns": columns, "rows": results, "count"
 ```
+### 3.4 完整流程模拟
+以查询"年龄大于30的用户有哪些"为例，演示框架三个核心模块的完整协作过程：
+#### 3.4.1 模拟数据
+假设数据库中的users表包含以下用户数据：
+| ID | 姓名 | 邮箱 | 年龄 | 城市 |
+|----|------|------|------|------|
+| 1  | 张三 | zhangsan@email.com | 25 | 北京 |
+| 2  | 李四 | lisi@email.com | 32 | 上海 |
+| 3  | 王五 | wangwu@email.com | 28 | 广州 |
+| 4  | 赵六 | zhaoliu@email.com | 35 | 深圳 |
+| 5  | 陈七 | chenqi@email.com | 29 | 杭州 |
+#### 3.4.2 Step 1: 知识库检索
+**用户输入**："年龄大于30的用户有哪些"
+
+**检索过程：**
+
+1. BGE-M3模型将查询文本转换为768维向量
+2. Milvus在知识库中进行语义相似度搜索
+3. 返回最相关的5条知识，按相似度排序
+**检索结果：**
+
+**DDL知识 **(相似度: 0.85)
+
+- 表名：users
+- 结构：包含id、name、email、age、city字段
+- 约束：id为主键，email唯一
+**Q-SQL示例** (相似度: 0.82)
+
+- 问题："查询年龄超过25岁的用户"
+- SQL：`SELECT * FROM users WHERE age > 25`
+这是检索到的相似示例，最终SQL会基于用户实际问题调整为age > 30
+
+**表描述 **(相似度: 0.78)
+
+- age字段：用户年龄，整数类型
+- name字段：用户姓名，文本类型
+#### 3.4.3 Step 2: SQL生成
+**上下文构建**： 系统将检索到的知识整理成结构化的上下文信息：
+
+**表结构信息**
+
+- 表名：users
+- DDL定义：完整的CREATE TABLE语句
+- 字段约束：主键、唯一性等
+
+**表和字段描述**
+
+- age字段：用户年龄，INTEGER类型
+- name字段：用户姓名，TEXT类型
+
+**查询示例**
+
+- 相似问题：查询年龄超过25岁的用户
+- 参考SQL：SELECT * FROM users WHERE age > 25
+
+**SQL生成过程：**
+
+1. DeepSeek分析用户问题的意图：查询满足年龄条件的用户
+2. 识别关键信息：年龄字段（age）、比较操作（大于）、阈值（30）
+3. 参考示例模式：从WHERE age > 25学习到WHERE age > 数值的模式
+4. 模式应用：将用户的实际数值30替换示例中的25
+5. 生成目标SQL：SELECT * FROM users WHERE age > 30
+
+#### 3.4.4 Step 3: SQL执行与结果处理
+
+安全处理：
+
+- 原始SQL：`SELECT * FROM users WHERE age > 30`
+- 自动添加限制：`SELECT * FROM users WHERE age > 30 LIMIT 100`
+**数据库执行**： SQLite引擎逐行检查users表中的数据：
+| 用户 | 年龄检查 | 结果 |
+|------|----------|------|
+| 张三 | 25 > 30? | ❌ 不符合 |
+| 李四 | 32 > 30? | ✅ 符合 |
+| 王五 | 28 > 30? | ❌ 不符合 |
+| 赵六 | 35 > 30? | ✅ 符合 |
+| 陈七 | 29 > 30? | ❌ 不符合 |
+
+**结果处理：**
+
+- 筛选出2条符合条件的记录
+- 转换为结构化JSON格式
+- 包含字段名称和数据类型信息
+**最终输出**：
+```json
+{
+    "success": true,
+    "error": null,
+    "sql": "SELECT * FROM users WHERE age > 30 LIMIT 100",
+    "results": {
+        "columns": ["id", "name", "email", "age", "city"],
+        "rows": [
+            {"id": 2, "name": "李四", "email": "lisi@email.com", "age": 32, "city": "上海"},
+            {"id": 4, "name": "赵六", "email": "zhaoliu@email.com", "age": 35, "city": "深圳"}
+        ],
+        "count": 2
+    },
+    "retry_count": 0
+}
+```
+通过这个语义理解 → 结构化查询 → 数据过滤 → 结果输出的完整流程，框架成功将用户的自然语言问题转换为精确的数据库查询结果。
+
