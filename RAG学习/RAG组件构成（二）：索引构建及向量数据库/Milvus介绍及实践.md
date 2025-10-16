@@ -440,36 +440,51 @@ else:
 ### 3.4 创建索引
 为了实现快速检索，需要为向量字段创建索引。这里选择 `HNSW` 索引，它在召回率和查询性能之间有着很好的平衡。创建索引后，必须调用 `load_collection` 将集合加载到内存中才能进行搜索。
 ```python
-# 5. 准备并插入数据
-print(f"\n--> 正在向 '{COLLECTION_NAME}' 插入数据")
+# 6. 创建索引
+print(f"\n--> 正在为 '{COLLECTION_NAME}' 创建索引")
 
-# 初始化数据列表，用于存储所有要插入的数据记录
-# 每个元素是一个字典，包含向量和对应的图像路径
-data_to_insert = []
+# 准备索引参数配置
+# index_params.prepare_index_params() 方法说明：
+# - 功能: 创建索引参数配置对象
+# - 返回值: IndexParams对象，用于配置索引参数
+index_params = milvus_client.prepare_index_params()
 
-# 使用tqdm创建进度条，遍历所有图像文件
-# tqdm提供可视化进度显示，方便监控大量数据的处理过程
-for image_path in tqdm(image_list, desc="生成图像嵌入"):
-    # 对每张图像进行编码，生成特征向量
-    # encoder.encode_image() 方法将图像转换为768维的浮点数向量
-    vector = encoder.encode_image(image_path)
-    
-    # 将编码结果和图像路径组成字典，添加到待插入数据列表中
-    # 字典结构必须与Collection Schema中定义的字段名保持一致
-    data_to_insert.append({"vector": vector, "image_path": image_path})
+# 添加向量字段的索引配置
+# index_params.add_index() 方法参数说明：
+# - field_name: 要创建索引的字段名 ("vector")
+# - index_type: 索引类型 ("HNSW" - 分层可导航小世界图)
+# - metric_type: 距离度量方式 ("COSINE" - 余弦相似度)
+# - params: 索引特定参数
+index_params.add_index(
+    field_name="vector",  # 向量字段名称
+    index_type="HNSW",    # 使用HNSW索引算法，适合高维向量近似最近邻搜索
+    metric_type="COSINE", # 使用余弦相似度作为距离度量标准
+    params={"M": 16, "efConstruction": 256}  # HNSW参数：M=每个节点的最大连接数，efConstruction=构建时的候选集大小
+)
 
-# 检查是否有数据需要插入（避免空列表插入）
-if data_to_insert:
-    # 执行批量插入操作
-    # milvus_client.insert() 方法将数据批量插入到指定的Collection中
-    result = milvus_client.insert(collection_name=COLLECTION_NAME, data=data_to_insert)
-    
-    # 输出插入结果
-    # result 是一个字典，包含插入操作的详细信息
-    print(f"成功插入 {result['insert_count']} 条数据。")
-else:
-    # 如果没有数据可插入，输出警告信息
-    print("警告：没有数据需要插入。")
+# 创建索引
+# milvus_client.create_index() 方法说明：
+# - collection_name: 要创建索引的集合名称
+# - index_params: 索引参数配置对象
+# - 返回值: 创建操作的结果状态
+milvus_client.create_index(collection_name=COLLECTION_NAME, index_params=index_params)
+print("成功为向量字段创建 HNSW 索引。")
+
+# 查看索引详情
+# milvus_client.describe_index() 方法说明：
+# - collection_name: 集合名称
+# - index_name: 索引名称（默认为字段名）
+# - 返回值: 包含索引详细信息的字典
+print("索引详情:")
+print(milvus_client.describe_index(collection_name=COLLECTION_NAME, index_name="vector"))
+
+# 加载集合到内存
+# milvus_client.load_collection() 方法说明：
+# - collection_name: 要加载的集合名称
+# - 功能: 将集合数据加载到内存中，提高查询性能
+# - 返回值: 加载操作的结果状态
+milvus_client.load_collection(collection_name=COLLECTION_NAME)
+print("已加载 Collection 到内存中。")
 ```
 **输出结果：**
 ```bash
